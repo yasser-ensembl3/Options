@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { OptionsTable } from '@/components/OptionsTable';
-import { DataFilters } from '@/components/DataFilters';
-import { AIAnalysis } from '@/components/AIAnalysis';
+import { LineChart, Line, BarChart, Bar, ComposedChart, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, ReferenceLine } from 'recharts';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface SearchHistory {
   id: string;
@@ -13,11 +13,10 @@ interface SearchHistory {
   timestamp: string;
 }
 
-export default function Home() {
+export default function DarkModePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
-
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -34,332 +33,63 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<string>('Date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
+
   const symbolsData: { [key: string]: string } = {
     'AAV': 'AAV - Advantage Energy Ltd',
     'ABX': 'ABX - Barrick Gold Corp',
     'AC': 'AC - Air Canada',
     'ACB': 'ACB - Aurora Cannabis Inc',
-    'ACO': 'ACO - Atco Ltd',
-    'ACQ': 'ACQ - Autocanada Inc',
-    'AD': 'AD - Alaris Equity Partners Income Trust',
-    'AEM': 'AEM - Agnico Eagle Mines Ltd',
-    'AFN': 'AFN - Ag Growth International Inc',
-    'AG': 'AG - First Majestic Silver Corp',
-    'AGI': 'AGI - Alamos Gold Inc',
-    'AI': 'AI - Atrium Mortgage Investment Corp',
-    'AIF': 'AIF - Altus Group Ltd',
-    'ALA': 'ALA - Altagas Ltd',
-    'AMZN': 'AMZN - Amazon.com Inc',
-    'AMD': 'AMD - Advanced Micro Devices Inc',
     'AAPL': 'AAPL - Apple Inc',
-    'AP': 'AP - Allied Properties Reit',
-    'AQN': 'AQN - Algonquin Power & Utilities Corp',
-    'ARE': 'ARE - Aecon Group Inc',
-    'ARX': 'ARX - Arc Resources Ltd',
-    'ASTL': 'ASTL - Algoma Steel Group Inc',
-    'ATD': 'ATD - Alimentation Couche-Tard Inc',
-    'ATH': 'ATH - Athabasca Oil Corp',
-    'ATRL': 'ATRL - Aeterna Zentaris Inc',
-    'ATS': 'ATS - ATS Corp',
-    'ATZ': 'ATZ - Aritzia Inc',
-    'AX': 'AX - Artis Reit',
-    'AYA': 'AYA - Aya Gold & Silver Inc',
+    'AMD': 'AMD - Advanced Micro Devices Inc',
+    'AMZN': 'AMZN - Amazon.com Inc',
     'BAM': 'BAM - Brookfield Asset Management Ltd',
     'BB': 'BB - Blackberry Ltd',
     'BBD': 'BBD - Bombardier Inc',
     'BCE': 'BCE - BCE Inc',
-    'BDGI': 'BDGI - Badger Infrastructure Solutions Ltd',
-    'BEI': 'BEI - Bellring Brands Inc',
-    'BEP': 'BEP - Brookfield Renewable Partners L.P.',
-    'BEPC': 'BEPC - Brookfield Renewable Corp',
-    'BHC': 'BHC - Bausch Health Companies Inc',
-    'BIP': 'BIP - Brookfield Infrastructure Partners L.P.',
-    'BIR': 'BIR - Birchcliff Energy Ltd',
-    'BITF': 'BITF - Bitfarms Ltd',
-    'BLX': 'BLX - Boralex Inc',
     'BMO': 'BMO - Bank Of Montreal',
     'BN': 'BN - Brookfield Corp',
     'BNS': 'BNS - Bank Of Nova Scotia',
-    'BRK': 'BRK - Berkshire Hathaway Inc',
-    'BTCC': 'BTCC - Purpose Bitcoin ETF',
     'BTCQ': 'BTCQ - 3iq Coinshares Bitcoin ETF',
     'BTCX': 'BTCX - CI Galaxy Bitcoin ETF',
-    'BTE': 'BTE - Baytex Energy Corp',
-    'BTO': 'BTO - B2gold Corp',
     'CAE': 'CAE - CAE Inc',
-    'CAR': 'CAR - Canadian Apt Properties Reit',
-    'CAS': 'CAS - Cascades Inc',
-    'CCA': 'CCA - Cogeco Communications Inc',
-    'CCL': 'CCL - Carnival Corp',
     'CCO': 'CCO - Cameco Corp',
-    'CF': 'CF - Canaccord Genuity Group Inc',
-    'CFP': 'CFP - Canfor Corp',
-    'CG': 'CG - Centerra Gold Inc',
-    'CHE': 'CHE - Chemtrade Logistics Income Fund',
-    'CGX': 'CGX - Cineplex Inc',
-    'CHP': 'CHP - Choice Properties Reit',
-    'CIA': 'CIA - Champion Iron Ltd',
-    'CJ': 'CJ - Cardinal Energy Ltd',
-    'CJT': 'CJT - Cargojet Inc',
-    'CLS': 'CLS - Celestica Inc',
     'CM': 'CM - Canadian Imperial Bank Of Commerce',
-    'CMG': 'CMG - Computer Modelling Group Ltd',
-    'CNDX': 'CNDX - Ishares Core S&P U.S. Total Market Index ETF',
-    'CNL': 'CNL - Collective Mining Ltd',
     'CNQ': 'CNQ - Canadian Natural Resources Ltd',
     'CNR': 'CNR - Canadian National Railway Co',
     'COST': 'COST - Costco Wholesale Corp',
     'CP': 'CP - Canadian Pacific Kansas City Ltd',
-    'CPX': 'CPX - Capital Power Corp',
-    'CRON': 'CRON - Cronos Group Inc',
-    'CRR': 'CRR - Crew Energy Inc',
-    'CS': 'CS - Capstone Copper Corp',
-    'CSH': 'CSH - Chartwell Retirement Residences',
-    'CTC': 'CTC - Canadian Tire Corp Ltd',
-    'CU': 'CU - Canadian Utilities Ltd',
     'CVE': 'CVE - Cenovus Energy Inc',
-    'CVO': 'CVO - Coveo Solutions Inc',
-    'CWB1': 'CWB1 - Canadian Western Bank',
-    'D': 'D - Dominion Energy Inc',
-    'DFY': 'DFY - Definity Financial Corp',
-    'DII': 'DII - Dorel Industries Inc',
-    'DIR': 'DIR - Dream Industrial Reit',
-    'DND': 'DND - Dye & Durham Ltd',
     'DOL': 'DOL - Dollarama Inc',
-    'DOO': 'DOO - BRP Inc',
-    'DPM': 'DPM - Dundee Precious Metals Inc',
-    'DSG': 'DSG - Descartes Systems Group Inc',
-    'EBIT': 'EBIT - Evolve Bitcoin ETF',
-    'ECN': 'ECN - ECN Capital Corp',
-    'EDR': 'EDR - Endeavour Silver Corp',
-    'EDV': 'EDV - Endeavour Mining Corp',
-    'EFN': 'EFN - Element Fleet Management Corp',
-    'EFR': 'EFR - Energy Fuels Inc',
-    'ELD': 'ELD - Eldorado Gold Corp',
-    'EMA': 'EMA - Emera Inc',
-    'EMP': 'EMP - Empire Co Ltd',
     'ENB': 'ENB - Enbridge Inc',
-    'EQB': 'EQB - Equitable Group Inc',
-    'EQX': 'EQX - Equinox Gold Corp',
-    'ERO': 'ERO - Ero Copper Corp',
-    'ETHH': 'ETHH - Purpose Ether ETF',
     'ETHQ': 'ETHQ - 3iq Coinshares Ether ETF',
-    'ETHR': 'ETHR - Evolve Ether ETF',
     'ETHX': 'ETHX - CI Galaxy Ethereum ETF',
-    'EXE': 'EXE - Extendicare Inc',
-    'FCR': 'FCR - First Quantum Minerals Ltd',
-    'FEC': 'FEC - Frontera Energy Corp',
-    'FM': 'FM - First Quantum Minerals Ltd',
     'FNV': 'FNV - Franco-Nevada Corp',
-    'FOM': 'FOM - Foran Mining Corp',
-    'FRU': 'FRU - Freehold Royalties Ltd',
-    'FSZ': 'FSZ - Fiera Capital Corp',
-    'FTT': 'FTT - Finning International Inc',
-    'FTS': 'FTS - Fortis Inc',
-    'FVI': 'FVI - Fortuna Silver Mines Inc',
-    'GDXD': 'GDXD - Horizons Gold Yield ETF',
-    'GDXU': 'GDXU - Horizons Gold Producers ETF',
-    'GEI': 'GEI - Gibson Energy Inc',
-    'GFL': 'GFL - GFL Environmental Inc',
-    'GIB': 'GIB - CGI Inc',
-    'GIL': 'GIL - Gildan Activewear Inc',
-    'GLXY': 'GLXY - Galaxy Digital Holdings Ltd',
-    'GMIN': 'GMIN - Gmin - Garmin Ltd',
     'GOOG': 'GOOG - Alphabet Inc',
-    'GOOS': 'GOOS - Canada Goose Holdings Inc',
-    'GRT': 'GRT - Granite Reit',
-    'GWO': 'GWO - Great-West Lifeco Inc',
-    'H': 'H - Hydro One Ltd',
-    'HBNK': 'HBNK - Horizons Canadian Bank Equal Weight ETF',
-    'HBM': 'HBM - Hudbay Minerals Inc',
-    'HMMJ': 'HMMJ - Horizons Marijuana Life Sciences Index ETF',
-    'HND': 'HND - Horizons Natural Gas Bear ETF',
-    'HNU': 'HNU - Horizons Natural Gas Bull ETF',
-    'HOD': 'HOD - Horizons Crude Oil Bear ETF',
-    'HPR': 'HPR - Horizons Active Cdn Preferred Share ETF',
-    'HUT': 'HUT - Hut 8 Mining Corp',
-    'HWX': 'HWX - Headwater Exploration Inc',
-    'HXQ': 'HXQ - Horizons Nasdaq-100 Index ETF',
-    'HXT': 'HXT - Horizons S&P/TSX 60 Index ETF',
-    'IAG': 'IAG - Iamgold Corp',
     'IFC': 'IFC - Intact Financial Corp',
-    'IFP': 'IFP - Interfor Corp',
-    'IGM': 'IGM - IGM Financial Inc',
-    'IMG': 'IMG - Iamgold Corp',
     'IMO': 'IMO - Imperial Oil Ltd',
-    'IVN': 'IVN - Ivanhoe Mines Ltd',
-    'K': 'K - Kellanova',
-    'KEY': 'KEY - Keyera Corp',
-    'KILO': 'KILO - KILO Gold Corp',
-    'KNT': 'KNT - K92 Mining Inc',
-    'KXS': 'KXS - Kinaxis Inc',
     'L': 'L - Loblaw Companies Ltd',
-    'LAC': 'LAC - Lithium Americas Corp',
-    'LB': 'LB - Laurentian Bank Of Canada',
-    'LIF': 'LIF - Labrador Iron Ore Royalty Corp',
-    'LNR': 'LNR - Linamar Corp',
-    'LSPD': 'LSPD - Lightspeed Commerce Inc',
-    'LUG': 'LUG - Lundin Gold Inc',
-    'LUG1': 'LUG1 - Lundin Mining Corp',
-    'LUN': 'LUN - Lundin Mining Corp',
-    'MATR': 'MATR - Mattel Inc',
-    'MDA': 'MDA - MDA Ltd',
-    'MDI': 'MDI - Major Drilling Group International Inc',
-    'MEG': 'MEG - MEG Energy Corp',
     'META': 'META - Meta Platforms Inc',
     'MFC': 'MFC - Manulife Financial Corp',
-    'MFI1': 'MFI1 - Maple Leaf Foods Inc',
     'MG': 'MG - Magna International Inc',
-    'MRE': 'MRE - Martinrea International Inc',
-    'MRU': 'MRU - Metro Inc',
     'MSFT': 'MSFT - Microsoft Corp',
-    'MTL': 'MTL - Mullen Group Ltd',
-    'MX': 'MX - Methanex Corp',
     'NA': 'NA - National Bank Of Canada',
-    'NG': 'NG - Novagold Resources Inc',
-    'NFI': 'NFI - NFI Group Inc',
-    'NGT': 'NGT - Newmont Corp',
-    'NPI': 'NPI - Northland Power Inc',
-    'NTR': 'NTR - Nutrien Ltd',
-    'NVA': 'NVA - Nuvista Energy Ltd',
     'NVDA': 'NVDA - NVIDIA Corp',
-    'NWC': 'NWC - North West Co Inc',
-    'NWH': 'NWH - Northwest Healthcare Properties Reit',
-    'NXE': 'NXE - NexGen Energy Ltd',
-    'OBE': 'OBE - Obsidian Energy Ltd',
-    'OGC': 'OGC - Oceanagold Corp',
-    'OLA': 'OLA - Orla Mining Ltd',
-    'ONEX': 'ONEX - Onex Corp',
-    'OR': 'OR - Osisko Gold Royalties Ltd',
-    'OTEX': 'OTEX - Open Text Corp',
-    'OVV': 'OVV - Ovintiv Inc',
-    'PAAS': 'PAAS - Pan American Silver Corp',
-    'PAAS1': 'PAAS1 - Pan American Silver Corp',
-    'PAAS2': 'PAAS2 - Pan American Silver Corp',
-    'PBH': 'PBH - Premium Brands Holdings Corp',
-    'PD': 'PD - Precision Drilling Corp',
-    'PET': 'PET - Perpetual Energy Inc',
-    'PEY': 'PEY - Peyto Exploration & Development Corp',
-    'PHYS': 'PHYS - Sprott Physical Gold Trust',
-    'PKI': 'PKI - Parkland Corp',
-    'PMZ': 'PMZ - Photon Control Inc',
-    'POU': 'POU - Paramount Resources Ltd',
-    'POW': 'POW - Power Corp Of Canada',
-    'PPL': 'PPL - Pembina Pipeline Corp',
-    'PRL': 'PRL - Perpetual Resources Ltd',
-    'PSLV': 'PSLV - Sprott Physical Silver Trust',
-    'PSK': 'PSK - Prairiesky Royalty Ltd',
-    'PXT': 'PXT - Parex Resources Inc',
-    'QBR': 'QBR - Quebecor Inc',
-    'QSR': 'QSR - Restaurant Brands International Inc',
-    'RBA': 'RBA - Ritchie Bros. Auctioneers Inc',
-    'RCI': 'RCI - Rogers Communications Inc',
-    'REAL': 'REAL - Canadian Real Estate Investment Trust',
-    'REI': 'REI - Riocan Reit',
-    'RING': 'RING - Gold Bullion Development Corp',
-    'RUS': 'RUS - Russel Metals Inc',
     'RY': 'RY - Royal Bank Of Canada',
-    'SAP': 'SAP - Saputo Inc',
-    'SCR': 'SCR - Score Media And Gaming Inc',
-    'SEA': 'SEA - Seabridge Gold Inc',
-    'SES': 'SES - Secure Energy Services Inc',
     'SHOP': 'SHOP - Shopify Inc',
-    'SIA': 'SIA - Sienna Senior Living Inc',
-    'SIL1': 'SIL1 - Silvergate Capital Corp',
-    'SIS': 'SIS - Savaria Corp',
-    'SJ': 'SJ - Stella-Jones Inc',
     'SLF': 'SLF - Sun Life Financial Inc',
-    'SOBO': 'SOBO - Southbow Corp',
-    'SOY': 'SOY - Soy Protein Corp',
-    'SPB': 'SPB - Superior Plus Corp',
-    'SRU': 'SRU - Smartcentres Reit',
-    'SSL': 'SSL - Sandstorm Gold Ltd',
-    'SSRM': 'SSRM - SSR Mining Inc',
-    'STN': 'STN - Stantec Inc',
     'SU': 'SU - Suncor Energy Inc',
-    'SVI': 'SVI - Storagevault Canada Inc',
-    'SVM': 'SVM - Silvercorp Metals Inc',
-    'SXJ': 'SXJ - Ishares S&P/TSX Capped Energy Index ETF',
-    'SXO': 'SXO - Ishares S&P/TSX Composite High Dividend Index ETF',
-    'SXV': 'SXV - Ishares S&P/TSX Composite Index ETF',
     'T': 'T - Telus Corp',
-    'TA': 'TA - Transalta Corp',
-    'TCL': 'TCL - Transcontinental Inc',
     'TD': 'TD - Toronto-Dominion Bank',
     'TECK': 'TECK - Teck Resources Ltd',
-    'TECH': 'TECH - Evolve Technology ETF',
-    'TFII': 'TFII - TFI International Inc',
-    'TFPM': 'TFPM - Triple Flag Precious Metals Corp',
-    'TIH': 'TIH - Toromont Industries Ltd',
-    'TIXT': 'TIXT - TELUS International',
-    'TLRY': 'TLRY - Tilray Brands Inc',
-    'TNZ': 'TNZ - Tenaz Energy Corp',
-    'TOU': 'TOU - Tourmaline Oil Corp',
-    'TOY': 'TOY - Spin Master Corp',
-    'TPZ': 'TPZ - Topaz Energy Corp',
-    'TRI': 'TRI - Thomson Reuters Corp',
-    'TRP': 'TRP - TC Energy Corp',
-    'TRP1': 'TRP1 - TC Energy Corp',
     'TSLA': 'TSLA - Tesla Inc',
-    'TSU': 'TSU - Trisura Group Ltd',
-    'TVE': 'TVE - Tamarack Valley Energy Ltd',
-    'TXG': 'TXG - Torex Gold Resources Inc',
-    'U': 'U - Unity Software Inc',
-    'USX': 'USX - Vanguard U.S. Total Market Index ETF',
-    'USSX': 'USSX - Horizons S&P 500 Index ETF',
-    'VAB': 'VAB - Vanguard Canadian Aggregate Bond Index ETF',
-    'VET': 'VET - Vermilion Energy Inc',
-    'VFV': 'VFV - Vanguard S&P 500 Index ETF',
-    'VSB': 'VSB - Vanguard Canadian Short-Term Bond Index ETF',
-    'VSC': 'VSC - Vanguard Canadian Short-Term Corporate Bond Index ETF',
     'WCN': 'WCN - Waste Connections Inc',
-    'WCP': 'WCP - Whitecap Resources Inc',
-    'WCP1': 'WCP1 - Whitecap Resources Inc',
-    'WDO': 'WDO - Wesdome Gold Mines Ltd',
     'WEED': 'WEED - Canopy Growth Corp',
-    'WEED1': 'WEED1 - Canopy Growth Corp',
     'WELL': 'WELL - WELL Health Technologies Corp',
-    'WFG': 'WFG - West Fraser Timber Co Ltd',
-    'WN': 'WN - George Weston Ltd',
     'WPM': 'WPM - Wheaton Precious Metals Corp',
-    'WSP': 'WSP - WSP Global Inc',
-    'WTE': 'WTE - Westshore Terminals Investment Corp',
-    'X': 'X - Tmx Group Ltd',
-    'XBB': 'XBB - Ishares Core Canadian Universe Bond Index ETF',
-    'XCB': 'XCB - Ishares Canadian Corporate Bond Index ETF',
-    'XCN': 'XCN - Ishares S&P/TSX Capped Composite Index ETF',
-    'XDV': 'XDV - Ishares Canadian Select Dividend Index ETF',
-    'XEG': 'XEG - Ishares S&P/TSX Capped Energy Index ETF',
-    'XFN': 'XFN - Ishares S&P/TSX Capped Financials Index ETF',
-    'XGD': 'XGD - Ishares S&P/TSX Global Gold Index ETF',
-    'XIC': 'XIC - Ishares Core S&P/TSX Capped Composite Index ETF',
-    'XIN': 'XIN - Ishares MSCI EAFE Index ETF',
-    'XIU': 'XIU - Ishares S&P/TSX 60 Index ETF',
-    'XRE': 'XRE - Ishares S&P/TSX Capped Reit Index ETF',
-    'XSB': 'XSB - Ishares Core Canadian Short Term Bond Index ETF',
-    'XSP': 'XSP - Ishares Core S&P 500 Index ETF',
-    'XSU': 'XSU - Ishares S&P/TSX Capped Utilities Index ETF',
-    'ZAG': 'ZAG - BMO Aggregate Bond Index ETF',
-    'ZBK': 'ZBK - BMO Discount Bond Index ETF',
-    'ZCN': 'ZCN - BMO S&P/TSX Capped Composite Index ETF',
-    'ZDM': 'ZDM - BMO International Dividend ETF',
-    'ZEB': 'ZEB - BMO Equal Weight Banks Index ETF',
-    'ZGLD': 'ZGLD - BMO Gold Bullion ETF',
-    'ZHY': 'ZHY - BMO High Yield US Corporate Bond Index ETF',
-    'ZIU': 'ZIU - BMO S&P/TSX Equal Weight Industrials Index ETF',
-    'ZLB': 'ZLB - BMO Low Volatility Canadian Equity ETF',
-    'ZPR': 'ZPR - BMO Laddered Preferred Share Index ETF',
-    'ZQQ': 'ZQQ - BMO Nasdaq 100 Equity Index ETF',
-    'ZSP': 'ZSP - BMO S&P 500 Index ETF',
-    'ZUB': 'ZUB - BMO US Preferred Share Index ETF',
-    'ZUE': 'ZUE - BMO MSCI USA High Quality Index ETF',
-    'ZUQ': 'ZUQ - BMO MSCI USA Quality Index ETF',
-    'ZUT': 'ZUT - BMO US Put Write ETF'
   };
 
   const symbols = Object.keys(symbolsData).sort();
 
-  // Données de l'onglet actif
   const activeData = useMemo(() => {
     const activeSearch = searchHistory.find(s => s.id === activeTab);
     return activeSearch?.data || null;
@@ -374,51 +104,42 @@ export default function Home() {
     }
   };
 
-  // Filtrer et trier les données
   const filteredAndSortedData = useMemo(() => {
     if (!activeData || !Array.isArray(activeData)) return null;
 
     let filtered = activeData.filter((row: any) => {
-      // Filtre par type (Call/Put)
       if (filters.quotes && row.Quotes?.toLowerCase() !== filters.quotes) {
         return false;
       }
 
-      // Filtre par Date Min
       if (filters.minDate) {
         const rowDate = new Date(row.Date).getTime();
         const minDate = new Date(filters.minDate).getTime();
         if (rowDate < minDate) return false;
       }
 
-      // Filtre par Date Max
       if (filters.maxDate) {
         const rowDate = new Date(row.Date).getTime();
         const maxDate = new Date(filters.maxDate).getTime();
         if (rowDate > maxDate) return false;
       }
 
-      // Filtre par Strike Min
       if (filters.minStrike && parseFloat(row.Strike_price) < parseFloat(filters.minStrike)) {
         return false;
       }
 
-      // Filtre par Strike Max
       if (filters.maxStrike && parseFloat(row.Strike_price) > parseFloat(filters.maxStrike)) {
         return false;
       }
 
-      // Filtre par Volatilité Min
       if (filters.minVolatility && parseFloat(row.volatility) < parseFloat(filters.minVolatility)) {
         return false;
       }
 
-      // Filtre par Volatilité Max
       if (filters.maxVolatility && parseFloat(row.volatility) > parseFloat(filters.maxVolatility)) {
         return false;
       }
 
-      // Filtre par is_weekly
       if (filters.isWeekly && row.is_weekly?.toString() !== filters.isWeekly) {
         return false;
       }
@@ -426,18 +147,15 @@ export default function Home() {
       return true;
     });
 
-    // Trier les données
     filtered.sort((a: any, b: any) => {
       let aVal = a[sortBy];
       let bVal = b[sortBy];
 
-      // Conversion en nombre pour les colonnes numériques
       if (sortBy === 'Strike_price' || sortBy === 'volatility' || sortBy === 'open_interest' || sortBy === 'bid_price' || sortBy === 'ask_price') {
         aVal = parseFloat(aVal) || 0;
         bVal = parseFloat(bVal) || 0;
       }
 
-      // Conversion en date
       if (sortBy === 'Date') {
         aVal = new Date(aVal).getTime();
         bVal = new Date(bVal).getTime();
@@ -451,8 +169,156 @@ export default function Home() {
     return filtered;
   }, [activeData, filters, sortBy, sortOrder]);
 
-  const handleScrape = async () => {
-    if (!selectedSymbol) {
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    if (!filteredAndSortedData || filteredAndSortedData.length === 0) {
+      return {
+        totalOptions: 0,
+        totalCalls: 0,
+        totalPuts: 0,
+        avgVolatility: 0,
+        totalVolume: 0,
+        avgStrike: 0,
+      };
+    }
+
+    const calls = filteredAndSortedData.filter((r: any) => r.Quotes?.toLowerCase() === 'call');
+    const puts = filteredAndSortedData.filter((r: any) => r.Quotes?.toLowerCase() === 'put');
+    const avgVol = filteredAndSortedData.reduce((sum: number, r: any) => sum + (parseFloat(r.volatility) || 0), 0) / filteredAndSortedData.length;
+    const totalVol = filteredAndSortedData.reduce((sum: number, r: any) => sum + (parseFloat(r.open_interest) || 0), 0);
+    const avgStrike = filteredAndSortedData.reduce((sum: number, r: any) => sum + (parseFloat(r.Strike_price) || 0), 0) / filteredAndSortedData.length;
+
+    return {
+      totalOptions: filteredAndSortedData.length,
+      totalCalls: calls.length,
+      totalPuts: puts.length,
+      avgVolatility: avgVol,
+      totalVolume: totalVol,
+      avgStrike: avgStrike,
+    };
+  }, [filteredAndSortedData]);
+
+  // 1. Price & IV by Strike (Volatility Smile)
+  const volatilitySmileData = useMemo(() => {
+    if (!filteredAndSortedData || filteredAndSortedData.length === 0) return { calls: [], puts: [] };
+
+    const calls = filteredAndSortedData
+      .filter((r: any) => r.Quotes?.toLowerCase() === 'call')
+      .map((r: any) => ({
+        strike: parseFloat(r.Strike_price) || 0,
+        iv: parseFloat(r.volatility) || 0,
+        bid: parseFloat(r.bid_price) || 0,
+        ask: parseFloat(r.ask_price) || 0,
+        oi: parseFloat(r.open_interest) || 0,
+        date: new Date(r.Date).toLocaleDateString('fr-CA'),
+      }))
+      .sort((a, b) => a.strike - b.strike);
+
+    const puts = filteredAndSortedData
+      .filter((r: any) => r.Quotes?.toLowerCase() === 'put')
+      .map((r: any) => ({
+        strike: parseFloat(r.Strike_price) || 0,
+        iv: parseFloat(r.volatility) || 0,
+        bid: parseFloat(r.bid_price) || 0,
+        ask: parseFloat(r.ask_price) || 0,
+        oi: parseFloat(r.open_interest) || 0,
+        date: new Date(r.Date).toLocaleDateString('fr-CA'),
+      }))
+      .sort((a, b) => a.strike - b.strike);
+
+    return { calls, puts };
+  }, [filteredAndSortedData]);
+
+  // 2. Volume by Strike (Top 15)
+  const volumeByStrike = useMemo(() => {
+    if (!filteredAndSortedData || filteredAndSortedData.length === 0) return [];
+
+    return filteredAndSortedData
+      .sort((a: any, b: any) => (parseFloat(b.open_interest) || 0) - (parseFloat(a.open_interest) || 0))
+      .slice(0, 15)
+      .map((row: any) => ({
+        strike: parseFloat(row.Strike_price).toFixed(0),
+        type: row.Quotes?.toLowerCase(),
+        volume: parseFloat(row.open_interest) || 0,
+        label: `${row.Quotes?.toUpperCase()} $${parseFloat(row.Strike_price).toFixed(0)}`,
+        date: new Date(row.Date).toLocaleDateString('fr-CA'),
+      }));
+  }, [filteredAndSortedData]);
+
+  // 3. IV by Expiration
+  const ivByExpiration = useMemo(() => {
+    if (!filteredAndSortedData || filteredAndSortedData.length === 0) return [];
+
+    const grouped = filteredAndSortedData.reduce((acc: any, row: any) => {
+      const date = new Date(row.Date).toLocaleDateString('fr-CA');
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          totalIV: 0,
+          count: 0,
+          totalVolume: 0,
+        };
+      }
+
+      acc[date].totalIV += parseFloat(row.volatility) || 0;
+      acc[date].totalVolume += parseFloat(row.open_interest) || 0;
+      acc[date].count++;
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .map((item: any) => ({
+        date: item.date,
+        avgIV: item.count > 0 ? parseFloat((item.totalIV / item.count).toFixed(2)) : 0,
+        volume: item.totalVolume,
+      }))
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 12);
+  }, [filteredAndSortedData]);
+
+  // 4. Call/Put Ratio by Expiration
+  const callPutRatioData = useMemo(() => {
+    if (!filteredAndSortedData || filteredAndSortedData.length === 0) return [];
+
+    const grouped = filteredAndSortedData.reduce((acc: any, row: any) => {
+      const date = new Date(row.Date).toLocaleDateString('fr-CA');
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          calls: 0,
+          puts: 0,
+          callVolume: 0,
+          putVolume: 0,
+        };
+      }
+
+      if (row.Quotes?.toLowerCase() === 'call') {
+        acc[date].calls++;
+        acc[date].callVolume += parseFloat(row.open_interest) || 0;
+      } else if (row.Quotes?.toLowerCase() === 'put') {
+        acc[date].puts++;
+        acc[date].putVolume += parseFloat(row.open_interest) || 0;
+      }
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .map((item: any) => ({
+        date: item.date,
+        calls: item.calls,
+        puts: item.puts,
+        ratio: item.puts > 0 ? parseFloat((item.calls / item.puts).toFixed(2)) : item.calls,
+        callVolume: item.callVolume,
+        putVolume: item.putVolume,
+      }))
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 10);
+  }, [filteredAndSortedData]);
+
+  const handleScrape = async (symbol: string) => {
+    if (!symbol) {
       setError('Veuillez sélectionner un symbole');
       return;
     }
@@ -460,32 +326,38 @@ export default function Home() {
     setError(null);
 
     try {
+      // Charger depuis PostgreSQL
       const response = await axios.post('/api/options', {
-        symbol: selectedSymbol,
+        symbol: symbol,
       }, {
         timeout: 60000,
       });
 
       const newSearch: SearchHistory = {
         id: Date.now().toString(),
-        symbol: selectedSymbol,
+        symbol: symbol,
         data: response.data,
         timestamp: new Date().toLocaleString('fr-CA'),
       };
 
       setSearchHistory(prev => [...prev, newSearch]);
       setActiveTab(newSearch.id);
-
-      console.log('Données reçues:', response.data);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(err.message);
       } else {
         setError('Erreur inconnue');
       }
-      console.error('Erreur:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Auto-fetch when symbol changes
+  const handleSymbolChange = (symbol: string) => {
+    setSelectedSymbol(symbol);
+    if (symbol) {
+      handleScrape(symbol);
     }
   };
 
@@ -497,153 +369,478 @@ export default function Home() {
     }
   };
 
-  const exportToCSV = () => {
-    if (!filteredAndSortedData || filteredAndSortedData.length === 0) return;
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
-    // Récupérer les colonnes (sans id, createdAt, updatedAt)
-    const allColumns = Object.keys(filteredAndSortedData[0]);
-    const columns = allColumns.filter(col => !['id', 'createdAt', 'updatedAt'].includes(col));
+  const openPrintPreview = async () => {
+    const activeSearch = searchHistory.find(s => s.id === activeTab);
+    if (!activeSearch) return;
 
-    // Créer l'en-tête CSV
-    const header = columns.join(',');
+    setExportingPDF(true);
+    setShowExportMenu(false);
 
-    // Créer les lignes CSV
-    const rows = filteredAndSortedData.map(row => {
-      return columns.map(col => {
-        const value = row[col];
-        // Échapper les valeurs contenant des virgules ou des guillemets
-        if (value === null || value === undefined) return '';
-        const stringValue = String(value);
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return `"${stringValue.replace(/"/g, '""')}"`;
-        }
-        return stringValue;
-      }).join(',');
+    try {
+      // Capture charts section as image
+      const chartsSection = document.getElementById('charts-section');
+      let chartsImage = '';
+
+      if (chartsSection) {
+        const canvas = await html2canvas(chartsSection, {
+          scale: 2,
+          backgroundColor: '#0f1419',
+          logging: false,
+        });
+        chartsImage = canvas.toDataURL('image/png');
+      }
+
+      // Prepare data to pass to print window
+      const reportData = {
+        symbol: activeSearch.symbol,
+        date: new Date().toLocaleDateString('fr-CA'),
+        statistics,
+        tableData: organizedTableData,
+        chartsImage, // Add captured charts image
+      };
+
+      // Store data in sessionStorage
+      sessionStorage.setItem('reportData', JSON.stringify(reportData));
+
+      // Open print preview in new window
+      window.open('/dark/print-preview', '_blank', 'width=1200,height=800');
+    } catch (error) {
+      console.error('Error preparing print preview:', error);
+      alert('Error preparing print preview');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
+  const exportCurrentView = () => {
+    const activeSearch = searchHistory.find(s => s.id === activeTab);
+    if (!activeSearch || !filteredAndSortedData) return;
+
+    setShowExportMenu(false);
+
+    try {
+      // Créer le JSON avec les données filtrées et triées actuelles
+      const exportData = {
+        symbol: activeSearch.symbol,
+        exportDate: new Date().toISOString(),
+        filters: filters,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+        data: filteredAndSortedData,
+        statistics: statistics,
+      };
+
+      // Convertir en JSON
+      const jsonStr = JSON.stringify(exportData, null, 2);
+
+      // Créer un blob et télécharger
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeSearch.symbol}_current_view_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting current view:', error);
+      alert('Erreur lors de l\'export de la vue actuelle');
+    }
+  };
+
+  const exportAllData = async () => {
+    setShowExportMenu(false);
+
+    try {
+      // Appeler l'API pour récupérer toutes les données d'aujourd'hui
+      const response = await axios.get('/api/options/export-today', {
+        timeout: 120000, // 2 minutes timeout
+      });
+
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        totalRecords: response.data.length,
+        data: response.data,
+      };
+
+      // Convertir en JSON
+      const jsonStr = JSON.stringify(exportData, null, 2);
+
+      // Créer un blob et télécharger
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all_options_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting all data:', error);
+      alert('Erreur lors de l\'export de toutes les données');
+    }
+  };
+
+
+  const resetFilters = () => {
+    setFilters({
+      quotes: '',
+      minStrike: '',
+      maxStrike: '',
+      minVolatility: '',
+      maxVolatility: '',
+      isWeekly: '',
+      minDate: '',
+      maxDate: '',
+    });
+  };
+
+  const updateFilter = (key: string, value: string) => {
+    setFilters({ ...filters, [key]: value });
+  };
+
+  // Organize data: Call then Put for same date/strike
+  const organizedTableData = useMemo(() => {
+    if (!filteredAndSortedData || filteredAndSortedData.length === 0) return [];
+
+    // Separate calls and puts
+    const calls = filteredAndSortedData.filter((row: any) => row.Quotes?.toLowerCase() === 'call');
+    const puts = filteredAndSortedData.filter((row: any) => row.Quotes?.toLowerCase() === 'put');
+
+    // Sort by date then strike
+    const sortByDateAndStrike = (a: any, b: any) => {
+      const dateA = new Date(a.Date).getTime();
+      const dateB = new Date(b.Date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      const strikeA = parseFloat(a.Strike_price) || 0;
+      const strikeB = parseFloat(b.Strike_price) || 0;
+      return strikeA - strikeB;
+    };
+
+    calls.sort(sortByDateAndStrike);
+    puts.sort(sortByDateAndStrike);
+
+    const organized: any[] = [];
+    const usedPuts = new Set<number>();
+
+    // For each call, find matching put (same date AND strike)
+    calls.forEach(call => {
+      const callStrike = parseFloat(call.Strike_price) || 0;
+      const callDate = new Date(call.Date).getTime();
+
+      organized.push(call);
+
+      const matchingPutIndex = puts.findIndex((put, index) => {
+        if (usedPuts.has(index)) return false;
+        const putStrike = parseFloat(put.Strike_price) || 0;
+        const putDate = new Date(put.Date).getTime();
+        return callDate === putDate && Math.abs(putStrike - callStrike) < 0.01;
+      });
+
+      if (matchingPutIndex !== -1) {
+        organized.push(puts[matchingPutIndex]);
+        usedPuts.add(matchingPutIndex);
+      }
     });
 
-    // Combiner en-tête et lignes
-    const csv = [header, ...rows].join('\n');
+    // Add remaining puts
+    puts.forEach((put, index) => {
+      if (!usedPuts.has(index)) {
+        organized.push(put);
+      }
+    });
 
-    // Créer un blob et télécharger
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
+    return organized;
+  }, [filteredAndSortedData]);
 
-    const activeSearch = searchHistory.find(s => s.id === activeTab);
-    const filename = `options_${activeSearch?.symbol || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  // Render compact table
+  const renderTable = () => {
+    if (!organizedTableData || organizedTableData.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          Aucune donnée à afficher
+        </div>
+      );
+    }
 
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Get all columns from the first row, excluding internal fields
+    const allColumns = organizedTableData.length > 0
+      ? Object.keys(organizedTableData[0]).filter(col => !['id', 'createdAt', 'updatedAt', 'created_at', 'updated_at'].includes(col))
+      : [];
+
+    return (
+      <div className="bg-[#1e2329] rounded-lg overflow-hidden border border-[#2b3139]">
+        <div className="overflow-x-auto overflow-y-auto max-h-[600px]" style={{ overscrollBehavior: 'contain' }}>
+          <table className="min-w-full text-xs">
+            <thead className="bg-[#252a30] border-b border-[#2b3139] sticky top-0 z-10">
+              <tr>
+                {allColumns.map((column) => (
+                  <th
+                    key={column}
+                    className="px-3 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap"
+                  >
+                    {column === 'Strike_price' ? 'Strike' : column === 'open_interest' ? 'OI' : column.replace(/_/g, ' ')}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2b3139]">
+              {organizedTableData.map((row, rowIndex) => {
+                const isCall = row.Quotes?.toLowerCase() === 'call';
+                const isPut = row.Quotes?.toLowerCase() === 'put';
+
+                return (
+                  <tr
+                    key={rowIndex}
+                    className={`hover:bg-[#252a30] transition-colors ${
+                      isCall ? 'bg-green-900/10' : isPut ? 'bg-red-900/10' : ''
+                    }`}
+                  >
+                    {allColumns.map((column) => {
+                      const value = row[column];
+                      let displayValue = value?.toString() || '-';
+
+                      // Special rendering for Quotes column
+                      if (column === 'Quotes' || column === 'quotes') {
+                        return (
+                          <td key={`${rowIndex}-${column}`} className="px-3 py-2 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                isCall
+                                  ? 'bg-green-600 text-white'
+                                  : isPut
+                                  ? 'bg-red-600 text-white'
+                                  : 'bg-gray-600 text-white'
+                              }`}
+                            >
+                              {isCall ? 'C' : isPut ? 'P' : '-'}
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      // Format date columns
+                      if ((column.toLowerCase().includes('date') || column === 'Date') && value) {
+                        try {
+                          displayValue = new Date(value).toLocaleDateString('fr-CA');
+                        } catch (e) {
+                          displayValue = value?.toString() || '-';
+                        }
+                      }
+
+                      // Format numeric columns (prices, volatility, etc.)
+                      if (
+                        (column.toLowerCase().includes('price') ||
+                         column.toLowerCase().includes('volatility') ||
+                         column.toLowerCase().includes('change')) &&
+                        value !== null &&
+                        value !== undefined &&
+                        !isNaN(parseFloat(value))
+                      ) {
+                        displayValue = parseFloat(value).toFixed(2);
+                      }
+
+                      // Format integer columns (sizes, open interest)
+                      if (
+                        (column.toLowerCase().includes('size') ||
+                         column.toLowerCase().includes('interest') ||
+                         column.toLowerCase().includes('volume')) &&
+                        value !== null &&
+                        value !== undefined &&
+                        !isNaN(parseInt(value))
+                      ) {
+                        displayValue = parseInt(value).toLocaleString();
+                      }
+
+                      return (
+                        <td
+                          key={`${rowIndex}-${column}`}
+                          className="px-3 py-2 whitespace-nowrap text-gray-300"
+                        >
+                          {displayValue}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <main className="min-h-screen py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <main className="min-h-screen bg-[#0f1419] py-4 px-4">
+      <div className="max-w-[1800px] mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Options Viewer
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-white mb-1">
+            Options Trading Dashboard
           </h1>
-          <p className="text-gray-600">
-            Données du Montreal Exchange depuis PostgreSQL
+          <p className="text-sm text-gray-400">
+            Montreal Exchange - Real-time Options Data
           </p>
         </div>
 
-        {/* Formulaire */}
-        <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <div className="mb-4">
-            <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-2">
-              Symbole
-            </label>
-            <select
-              id="symbol"
-              value={selectedSymbol}
-              onChange={(e) => setSelectedSymbol(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Sélectionnez un symbole</option>
-              {symbols.map((symbol) => (
-                <option key={symbol} value={symbol}>
-                  {symbol}
-                </option>
-              ))}
-            </select>
-            {selectedSymbol && (
-              <p className="mt-2 text-sm text-gray-600 font-medium">
-                {symbolsData[selectedSymbol]}
-              </p>
-            )}
+        {/* Top Controls Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          {/* Symbol Selection & Export */}
+          <div className="bg-[#1e2329] p-4 rounded-lg border border-[#2b3139]">
+            <label className="block text-xs font-medium text-gray-300 mb-2">Symbol & Export</label>
+            <div className="flex gap-3 items-start">
+              <div className="flex-1">
+                <select
+                  value={selectedSymbol}
+                  onChange={(e) => handleSymbolChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#252a30] border border-[#2b3139] rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">Select...</option>
+                  {symbols.map((symbol) => (
+                    <option key={symbol} value={symbol}>
+                      {symbol}
+                    </option>
+                  ))}
+                </select>
+                {selectedSymbol && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    {symbolsData[selectedSymbol]}
+                  </p>
+                )}
+              </div>
+              <div className="relative" style={{ minWidth: '140px' }}>
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={!filteredAndSortedData || exportingPDF}
+                className={`w-full px-5 py-2 rounded text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 ${
+                  !filteredAndSortedData || exportingPDF
+                    ? 'bg-gray-600 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {exportingPDF ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Preparing...
+                  </span>
+                ) : (
+                  <>
+                    Export
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+
+              {showExportMenu && !exportingPDF && (
+                <div className="absolute right-0 mt-2 w-64 bg-[#1e2329] border border-[#2b3139] rounded-lg shadow-lg z-50">
+                  <button
+                    onClick={openPrintPreview}
+                    className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#252a30] transition-colors border-b border-[#2b3139]"
+                  >
+                    <div className="font-semibold">Export PDF</div>
+                    <div className="text-xs text-gray-400">Toute la page avec graphiques</div>
+                  </button>
+                  <button
+                    onClick={exportCurrentView}
+                    className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#252a30] transition-colors border-b border-[#2b3139]"
+                  >
+                    <div className="font-semibold">Export Vue Actuelle (JSON)</div>
+                    <div className="text-xs text-gray-400">Table filtrée et triée</div>
+                  </button>
+                  <button
+                    onClick={exportAllData}
+                    className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#252a30] transition-colors"
+                  >
+                    <div className="font-semibold">Export All Data (JSON)</div>
+                    <div className="text-xs text-gray-400">Toutes les options d'aujourd'hui (DB)</div>
+                  </button>
+                </div>
+              )}
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={handleScrape}
-            disabled={loading || !selectedSymbol}
-            className={`w-full px-6 py-3 rounded-lg font-semibold text-white transition-colors ${
-              loading || !selectedSymbol
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Chargement...
-              </span>
-            ) : (
-              'Charger les données'
-            )}
-          </button>
+          {/* Quick Stats */}
+          <div className="bg-[#1e2329] p-4 rounded-lg border border-[#2b3139]">
+            <h3 className="text-xs font-medium text-gray-300 mb-3">Quick Stats</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[#252a30] p-3 rounded text-center">
+                <div className="text-xs text-gray-400 mb-1">Total</div>
+                <div className="text-xl font-bold text-white">{statistics.totalOptions}</div>
+              </div>
+              <div className="bg-[#252a30] p-3 rounded text-center">
+                <div className="text-xs text-gray-400 mb-1">Calls</div>
+                <div className="text-xl font-bold text-green-400">{statistics.totalCalls}</div>
+              </div>
+              <div className="bg-[#252a30] p-3 rounded text-center">
+                <div className="text-xs text-gray-400 mb-1">Puts</div>
+                <div className="text-xl font-bold text-red-400">{statistics.totalPuts}</div>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="bg-[#252a30] p-2 rounded text-center">
+                <div className="text-xs text-gray-400">Avg IV</div>
+                <div className="text-sm font-semibold text-blue-400">{statistics.avgVolatility.toFixed(1)}%</div>
+              </div>
+              <div className="bg-[#252a30] p-2 rounded text-center">
+                <div className="text-xs text-gray-400">Total OI</div>
+                <div className="text-sm font-semibold text-purple-400">{statistics.totalVolume.toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Affichage des erreurs */}
+        {/* Error Display */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700">{error}</p>
+          <div className="mb-4 p-3 bg-red-900/20 border border-red-800 rounded-lg">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
-        {/* Onglets Historique */}
+        {/* Tabs */}
         {searchHistory.length > 0 && (
-          <div className="mb-6 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap gap-2">
             {searchHistory.map((search) => (
               <button
                 key={search.id}
                 onClick={() => setActiveTab(search.id)}
-                className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`group flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   activeTab === search.id
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : 'bg-[#1e2329] text-gray-300 hover:bg-[#252a30] border border-[#2b3139]'
                 }`}
               >
                 <span>{search.symbol}</span>
-                <span className="text-xs opacity-70">{search.timestamp}</span>
+                <span className="text-xs opacity-70">{search.timestamp.split(' ')[1]}</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     closeTab(search.id);
                   }}
-                  className={`ml-1 hover:opacity-100 transition-opacity ${
-                    activeTab === search.id ? 'opacity-70' : 'opacity-50'
-                  }`}
+                  className="ml-1 hover:opacity-100 transition-opacity opacity-70"
                 >
                   ×
                 </button>
@@ -652,51 +849,341 @@ export default function Home() {
           </div>
         )}
 
-        {/* Analyse IA */}
-        {activeData && Array.isArray(activeData) && (
-          <AIAnalysis
-            data={filteredAndSortedData || activeData}
-            symbol={searchHistory.find(s => s.id === activeTab)?.symbol || ''}
-          />
-        )}
+        {/* Main Dashboard Grid - 2x2 Advanced Charts */}
+        {activeData && filteredAndSortedData && (
+          <div id="charts-section" className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
 
-        {/* Filtres et Tri */}
-        {activeData && Array.isArray(activeData) && (
-          <DataFilters
-            filters={filters}
-            onFilterChange={setFilters}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSortChange={handleSortChange}
-          />
-        )}
-
-        {/* Affichage des données en tableau */}
-        {filteredAndSortedData && Array.isArray(filteredAndSortedData) && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Résultats ({filteredAndSortedData.length} ligne{filteredAndSortedData.length > 1 ? 's' : ''})
-              </h2>
-              <button
-                onClick={exportToCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Exporter CSV
-              </button>
+            {/* 1. Volatility Smile (IV by Strike) */}
+            <div className="bg-[#1e2329] p-3 rounded-lg border border-[#2b3139]">
+              <h3 className="text-xs font-semibold text-white mb-0.5">Volatility Smile</h3>
+              <p className="text-[10px] text-gray-400 mb-2">Implied Volatility by Strike Price</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2b3139" />
+                  <XAxis
+                    dataKey="strike"
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'Strike Price', position: 'insideBottom', offset: -5, fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <YAxis
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'IV %', angle: -90, position: 'insideLeft', fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e2329', border: '1px solid #2b3139', borderRadius: '4px', fontSize: '11px' }}
+                    labelStyle={{ color: '#e1e3e6' }}
+                    formatter={(value: any, name: string) => {
+                      if (name === 'iv') return [value + '%', 'IV'];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: '11px' }}
+                    iconType="line"
+                  />
+                  <Line
+                    data={volatilitySmileData.calls}
+                    type="monotone"
+                    dataKey="iv"
+                    stroke="#26a69a"
+                    strokeWidth={2}
+                    dot={{ fill: '#26a69a', r: 3 }}
+                    name="Calls IV"
+                    connectNulls
+                  />
+                  <Line
+                    data={volatilitySmileData.puts}
+                    type="monotone"
+                    dataKey="iv"
+                    stroke="#ef5350"
+                    strokeWidth={2}
+                    dot={{ fill: '#ef5350', r: 3 }}
+                    name="Puts IV"
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-            <OptionsTable data={filteredAndSortedData} />
+
+            {/* 2. Volume by Strike (Top Liquidity Zones) */}
+            <div className="bg-[#1e2329] p-3 rounded-lg border border-[#2b3139]">
+              <h3 className="text-xs font-semibold text-white mb-0.5">Volume by Strike</h3>
+              <p className="text-[10px] text-gray-400 mb-2">Top 15 Strikes by Open Interest</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={volumeByStrike} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2b3139" />
+                  <XAxis
+                    type="number"
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'Open Interest', position: 'insideBottom', offset: -5, fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    tick={{ fill: '#848e9c', fontSize: 9 }}
+                    width={70}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e2329', border: '1px solid #2b3139', borderRadius: '4px', fontSize: '11px' }}
+                    labelStyle={{ color: '#e1e3e6' }}
+                    formatter={(value: any) => [value.toLocaleString(), 'OI']}
+                  />
+                  <Bar dataKey="volume" radius={[0, 4, 4, 0]}>
+                    {volumeByStrike.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.type === 'call' ? '#26a69a' : '#ef5350'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 3. IV Term Structure */}
+            <div className="bg-[#1e2329] p-3 rounded-lg border border-[#2b3139]">
+              <h3 className="text-xs font-semibold text-white mb-0.5">IV Term Structure</h3>
+              <p className="text-[10px] text-gray-400 mb-2">Average IV & Volume by Expiration</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <ComposedChart data={ivByExpiration}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2b3139" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#848e9c', fontSize: 9 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'IV %', angle: -90, position: 'insideLeft', fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'Volume', angle: 90, position: 'insideRight', fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e2329', border: '1px solid #2b3139', borderRadius: '4px', fontSize: '11px' }}
+                    labelStyle={{ color: '#e1e3e6' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Bar yAxisId="right" dataKey="volume" fill="#374151" name="Volume" opacity={0.5} />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="avgIV"
+                    stroke="#ffa726"
+                    strokeWidth={2}
+                    dot={{ fill: '#ffa726', r: 4 }}
+                    name="Avg IV %"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 4. Call/Put Ratio & Sentiment */}
+            <div className="bg-[#1e2329] p-3 rounded-lg border border-[#2b3139]">
+              <h3 className="text-xs font-semibold text-white mb-0.5">Call/Put Ratio</h3>
+              <p className="text-[10px] text-gray-400 mb-2">Market Sentiment by Expiration</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <ComposedChart data={callPutRatioData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2b3139" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#848e9c', fontSize: 9 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'Count', angle: -90, position: 'insideLeft', fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fill: '#848e9c', fontSize: 10 }}
+                    label={{ value: 'C/P Ratio', angle: 90, position: 'insideRight', fill: '#848e9c', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e2329', border: '1px solid #2b3139', borderRadius: '4px', fontSize: '11px' }}
+                    labelStyle={{ color: '#e1e3e6' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <ReferenceLine yAxisId="right" y={1} stroke="#6b7280" strokeDasharray="3 3" label={{ value: 'Neutral', fill: '#6b7280', fontSize: 10 }} />
+                  <Bar yAxisId="left" dataKey="calls" stackId="a" fill="#26a69a" name="Calls" />
+                  <Bar yAxisId="left" dataKey="puts" stackId="a" fill="#ef5350" name="Puts" />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="ratio"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', r: 4 }}
+                    name="C/P Ratio"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
           </div>
         )}
 
-        {/* Message si aucune donnée */}
+        {/* Filters */}
+        {activeData && (
+          <div className="bg-[#1e2329] p-4 rounded-lg border border-[#2b3139] mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-white">Filters</h3>
+              <button
+                onClick={resetFilters}
+                className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Type</label>
+                <select
+                  value={filters.quotes}
+                  onChange={(e) => updateFilter('quotes', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  <option value="call">Call</option>
+                  <option value="put">Put</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Date Min</label>
+                <input
+                  type="date"
+                  value={filters.minDate}
+                  onChange={(e) => updateFilter('minDate', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Date Max</label>
+                <input
+                  type="date"
+                  value={filters.maxDate}
+                  onChange={(e) => updateFilter('maxDate', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Strike Min</label>
+                <input
+                  type="number"
+                  value={filters.minStrike}
+                  onChange={(e) => updateFilter('minStrike', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Strike Max</label>
+                <input
+                  type="number"
+                  value={filters.maxStrike}
+                  onChange={(e) => updateFilter('maxStrike', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Vol Min</label>
+                <input
+                  type="number"
+                  value={filters.minVolatility}
+                  onChange={(e) => updateFilter('minVolatility', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Vol Max</label>
+                <input
+                  type="number"
+                  value={filters.maxVolatility}
+                  onChange={(e) => updateFilter('maxVolatility', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-400 mb-1">Weekly</label>
+                <select
+                  value={filters.isWeekly}
+                  onChange={(e) => updateFilter('isWeekly', e.target.value)}
+                  className="w-full px-2 py-1.5 bg-[#252a30] border border-[#2b3139] rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  <option value="1">Yes</option>
+                  <option value="0">No</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-[10px] font-medium text-gray-400 mb-2">Sort By</label>
+              <div className="flex flex-wrap gap-2">
+                {['Date', 'Strike_price', 'volatility', 'open_interest', 'bid_price', 'ask_price'].map((col) => (
+                  <button
+                    key={col}
+                    onClick={() => handleSortChange(col)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      sortBy === col
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[#252a30] text-gray-300 hover:bg-[#2b3139] border border-[#2b3139]'
+                    }`}
+                  >
+                    {col.replace('_', ' ')}
+                    {sortBy === col && (
+                      <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* Options Table */}
+        {organizedTableData && organizedTableData.length > 0 && (
+          <div className="bg-[#1e2329] p-4 rounded-lg border border-[#2b3139]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-white">
+                Options Chain ({organizedTableData.length})
+              </h3>
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                Scroll horizontalement pour plus de colonnes
+              </p>
+            </div>
+            {renderTable()}
+          </div>
+        )}
+
+        {/* Empty State */}
         {!loading && !error && searchHistory.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <p className="text-gray-500">
-              Cliquez sur "Charger les données" pour commencer
+          <div className="text-center py-20 bg-[#1e2329] rounded-lg border border-[#2b3139]">
+            <svg className="mx-auto h-12 w-12 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p className="text-gray-400 text-sm">
+              Select a symbol and click "Fetch Data" to start
             </p>
           </div>
         )}
