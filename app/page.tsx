@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { LineChart, Line, BarChart, Bar, ComposedChart, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, ReferenceLine } from 'recharts';
 import jsPDF from 'jspdf';
@@ -13,12 +13,25 @@ interface SearchHistory {
   timestamp: string;
 }
 
+interface StockPrice {
+  symbol: string;
+  last_price: number;
+  bid_price: number;
+  ask_price: number;
+  scrape_date: string;
+  created_at: string;
+}
+
 export default function DarkModePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [symbols, setSymbols] = useState<string[]>([]);
+  const [loadingSymbols, setLoadingSymbols] = useState(true);
+  const [stockPrice, setStockPrice] = useState<StockPrice | null>(null);
+  const [loadingStockPrice, setLoadingStockPrice] = useState(false);
 
   const [filters, setFilters] = useState({
     quotes: '',
@@ -33,62 +46,23 @@ export default function DarkModePage() {
   const [sortBy, setSortBy] = useState<string>('Date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
+  // Charger les symboles depuis l'API au montage du composant
+  useEffect(() => {
+    const fetchSymbols = async () => {
+      try {
+        setLoadingSymbols(true);
+        const response = await axios.get('/api/options/symbols');
+        setSymbols(response.data);
+      } catch (err) {
+        console.error('Erreur lors du chargement des symboles:', err);
+        setError('Erreur lors du chargement des symboles');
+      } finally {
+        setLoadingSymbols(false);
+      }
+    };
 
-  const symbolsData: { [key: string]: string } = {
-    'AAV': 'AAV - Advantage Energy Ltd',
-    'ABX': 'ABX - Barrick Gold Corp',
-    'AC': 'AC - Air Canada',
-    'ACB': 'ACB - Aurora Cannabis Inc',
-    'AAPL': 'AAPL - Apple Inc',
-    'AMD': 'AMD - Advanced Micro Devices Inc',
-    'AMZN': 'AMZN - Amazon.com Inc',
-    'BAM': 'BAM - Brookfield Asset Management Ltd',
-    'BB': 'BB - Blackberry Ltd',
-    'BBD': 'BBD - Bombardier Inc',
-    'BCE': 'BCE - BCE Inc',
-    'BMO': 'BMO - Bank Of Montreal',
-    'BN': 'BN - Brookfield Corp',
-    'BNS': 'BNS - Bank Of Nova Scotia',
-    'BTCQ': 'BTCQ - 3iq Coinshares Bitcoin ETF',
-    'BTCX': 'BTCX - CI Galaxy Bitcoin ETF',
-    'CAE': 'CAE - CAE Inc',
-    'CCO': 'CCO - Cameco Corp',
-    'CM': 'CM - Canadian Imperial Bank Of Commerce',
-    'CNQ': 'CNQ - Canadian Natural Resources Ltd',
-    'CNR': 'CNR - Canadian National Railway Co',
-    'COST': 'COST - Costco Wholesale Corp',
-    'CP': 'CP - Canadian Pacific Kansas City Ltd',
-    'CVE': 'CVE - Cenovus Energy Inc',
-    'DOL': 'DOL - Dollarama Inc',
-    'ENB': 'ENB - Enbridge Inc',
-    'ETHQ': 'ETHQ - 3iq Coinshares Ether ETF',
-    'ETHX': 'ETHX - CI Galaxy Ethereum ETF',
-    'FNV': 'FNV - Franco-Nevada Corp',
-    'GOOG': 'GOOG - Alphabet Inc',
-    'IFC': 'IFC - Intact Financial Corp',
-    'IMO': 'IMO - Imperial Oil Ltd',
-    'L': 'L - Loblaw Companies Ltd',
-    'META': 'META - Meta Platforms Inc',
-    'MFC': 'MFC - Manulife Financial Corp',
-    'MG': 'MG - Magna International Inc',
-    'MSFT': 'MSFT - Microsoft Corp',
-    'NA': 'NA - National Bank Of Canada',
-    'NVDA': 'NVDA - NVIDIA Corp',
-    'RY': 'RY - Royal Bank Of Canada',
-    'SHOP': 'SHOP - Shopify Inc',
-    'SLF': 'SLF - Sun Life Financial Inc',
-    'SU': 'SU - Suncor Energy Inc',
-    'T': 'T - Telus Corp',
-    'TD': 'TD - Toronto-Dominion Bank',
-    'TECK': 'TECK - Teck Resources Ltd',
-    'TSLA': 'TSLA - Tesla Inc',
-    'WCN': 'WCN - Waste Connections Inc',
-    'WEED': 'WEED - Canopy Growth Corp',
-    'WELL': 'WELL - WELL Health Technologies Corp',
-    'WPM': 'WPM - Wheaton Precious Metals Corp',
-  };
-
-  const symbols = Object.keys(symbolsData).sort();
+    fetchSymbols();
+  }, []);
 
   const activeData = useMemo(() => {
     const activeSearch = searchHistory.find(s => s.id === activeTab);
@@ -353,11 +327,32 @@ export default function DarkModePage() {
     }
   };
 
+  // Fetch stock price for a symbol
+  const fetchStockPrice = async (symbol: string) => {
+    try {
+      setLoadingStockPrice(true);
+      const response = await axios.get(`/api/stock-price?symbol=${symbol}`);
+      if (response.data.success) {
+        setStockPrice(response.data.data);
+      } else {
+        setStockPrice(null);
+      }
+    } catch (err) {
+      console.error('Erreur lors du chargement du prix:', err);
+      setStockPrice(null);
+    } finally {
+      setLoadingStockPrice(false);
+    }
+  };
+
   // Auto-fetch when symbol changes
   const handleSymbolChange = (symbol: string) => {
     setSelectedSymbol(symbol);
     if (symbol) {
       handleScrape(symbol);
+      fetchStockPrice(symbol);
+    } else {
+      setStockPrice(null);
     }
   };
 
@@ -689,6 +684,86 @@ export default function DarkModePage() {
           </p>
         </div>
 
+        {/* Stock Price Section */}
+        {stockPrice && (
+          <div className="mb-4 bg-[#1e2329] p-5 rounded-lg border border-[#2b3139]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                {/* Symbol */}
+                <div>
+                  <div className="text-3xl font-bold text-white">
+                    {stockPrice.symbol}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Last Update: {new Date(stockPrice.created_at).toLocaleString('fr-CA', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                </div>
+
+                {/* Last Price */}
+                <div className="border-l border-[#2b3139] pl-6">
+                  <div className="text-xs text-gray-400 mb-1">Last Price</div>
+                  <div className="text-2xl font-bold text-green-400">
+                    ${parseFloat(stockPrice.last_price.toString()).toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Bid Price */}
+                <div className="border-l border-[#2b3139] pl-6">
+                  <div className="text-xs text-gray-400 mb-1">Bid</div>
+                  <div className="text-xl font-semibold text-blue-400">
+                    ${parseFloat(stockPrice.bid_price.toString()).toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Ask Price */}
+                <div className="border-l border-[#2b3139] pl-6">
+                  <div className="text-xs text-gray-400 mb-1">Ask</div>
+                  <div className="text-xl font-semibold text-red-400">
+                    ${parseFloat(stockPrice.ask_price.toString()).toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Spread */}
+                <div className="border-l border-[#2b3139] pl-6">
+                  <div className="text-xs text-gray-400 mb-1">Spread</div>
+                  <div className="text-lg font-semibold text-purple-400">
+                    ${(parseFloat(stockPrice.ask_price.toString()) - parseFloat(stockPrice.bid_price.toString())).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Loading indicator */}
+              {loadingStockPrice && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <span className="text-sm">Updating...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Top Controls Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           {/* Symbol Selection & Export */}
@@ -699,9 +774,12 @@ export default function DarkModePage() {
                 <select
                   value={selectedSymbol}
                   onChange={(e) => handleSymbolChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#252a30] border border-[#2b3139] rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  disabled={loadingSymbols}
+                  className="w-full px-3 py-2 bg-[#252a30] border border-[#2b3139] rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select...</option>
+                  <option value="">
+                    {loadingSymbols ? 'Loading symbols...' : `Select... (${symbols.length} available)`}
+                  </option>
                   {symbols.map((symbol) => (
                     <option key={symbol} value={symbol}>
                       {symbol}
@@ -710,7 +788,7 @@ export default function DarkModePage() {
                 </select>
                 {selectedSymbol && (
                   <p className="mt-1 text-xs text-gray-400">
-                    {symbolsData[selectedSymbol]}
+                    Selected: {selectedSymbol}
                   </p>
                 )}
               </div>

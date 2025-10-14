@@ -119,17 +119,33 @@ export async function POST(request: Request) {
 
     const tableName = process.env.POSTGRES_TABLE || 'db_option';
 
-    // Requête SQL avec les vrais noms de colonnes PostgreSQL
-    // Le symbole dans la DB commence par le code suivi d'un espace (ex: "BTCQ 251017C17.50")
-    // Donc on cherche tous les symboles qui commencent par le symbole sélectionné suivi d'un espace
-    // Cela évite que "BN" ne matche "BNS"
+    // Étape 1: Trouver la date de scraping la plus proche pour ce symbole
+    // (aujourd'hui si disponible, sinon la date la plus récente)
+    const dateQuery = `
+      SELECT scrape_date
+      FROM ${tableName}
+      WHERE symbol LIKE $1
+      ORDER BY ABS(scrape_date - CURRENT_DATE)
+      LIMIT 1
+    `;
+
+    const dateResult = await client.query(dateQuery, [`${symbol} %`]);
+
+    if (dateResult.rows.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const closestScrapeDate = dateResult.rows[0].scrape_date;
+
+    // Étape 2: Récupérer toutes les options pour ce symbole et cette date de scraping
     const query = `
       SELECT * FROM ${tableName}
       WHERE symbol LIKE $1
+      AND scrape_date = $2
       ORDER BY expiration_date ASC, strike_price ASC
     `;
 
-    const result = await client.query(query, [`${symbol} %`]);
+    const result = await client.query(query, [`${symbol} %`, closestScrapeDate]);
 
     // Transformer les données au format attendu par le frontend
     const transformedData = transformDataToN8nFormat(result.rows);
