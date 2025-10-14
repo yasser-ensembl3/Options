@@ -2,36 +2,51 @@
 
 ## 📋 Vue d'ensemble
 
-Application frontend pour visualiser les données des options scrapées depuis le Montreal Exchange via un workflow n8n.
+Application professionnelle de trading d'options avec interface dark mode, graphiques analytics avancés et connexion PostgreSQL directe. Les données sont récupérées en temps réel depuis une base de données PostgreSQL alimentée par un workflow n8n qui scrape le Montreal Exchange.
+
+### 🆕 Nouveautés Version 3.0
+- **Dark Mode Principal** : Interface sombre professionnelle optimisée pour les traders
+- **4 Graphiques Interactifs** : Volatility Smile, Volume by Strike, IV Term Structure, Call/Put Ratio
+- **Connexion PostgreSQL** : Accès direct à la base de données pour performances optimales
+- **Export Multi-Format** : PDF avec graphiques + JSON (vue actuelle et toutes données)
+- **Chargement Automatique** : Sélection de symbole = chargement instantané des données
 
 ## 🏗️ Architecture
 
-### Flux de données
-1. **Frontend** : L'utilisateur sélectionne un symbole et clique sur "Scraper les données"
-2. **API Route** : `/api/scrape` fait un proxy vers le webhook n8n (évite les problèmes CORS)
-3. **n8n Webhook (GET)** : Reçoit le paramètre `symbol` et lance le workflow
-4. **n8n Workflow** : Scrape les données du Montreal Exchange
-5. **Webhook Response** : n8n répond avec les données JSON via "Respond to Webhook"
-6. **Frontend** : Crée un nouvel onglet avec les données et affiche dans un tableau
+### Flux de données (Version 3.0)
+1. **Frontend** : L'utilisateur sélectionne un symbole dans la liste déroulante
+2. **Chargement Automatique** : Le frontend appelle `/api/options` avec le symbole
+3. **API Route** : Requête SQL sur PostgreSQL pour récupérer les données du symbole
+4. **PostgreSQL** : Base de données alimentée en continu par n8n
+5. **n8n Background** : Workflow automatisé qui scrape Montreal Exchange toutes les X minutes
+6. **Frontend** : Affiche les données + génère 4 graphiques interactifs + crée un onglet
 
 ```
-[Frontend] --POST /api/scrape--> [Next.js API Route]
-                                       |
-                                       v
-                              [n8n Webhook GET + ?symbol=XXX]
-                                       |
-                                       v
-                                  [Scraping Workflow]
-                                       |
-                                       v
-                              [Respond to Webhook (JSON)]
-                                       |
-                                       v
-[Frontend] <--JSON Response (tableau)--
+[Background] n8n Workflow automatisé
      |
      v
-[Système d'onglets avec historique]
+[Montreal Exchange] --scraping--> [PostgreSQL Database]
+                                       ^
+                                       |
+[Frontend] --Sélection symbole--> [Next.js API Route /api/options]
+     |                                 |
+     |                                 v
+     |                      [SQL Query sur PostgreSQL]
+     |                                 |
+     |<--JSON Response (options)-------+
+     |
+     v
+[Génération Graphiques + Table + Onglet]
+     |
+     v
+[Export PDF/JSON disponible]
 ```
+
+### Architecture Ancienne (Legacy v2.x)
+```
+[Frontend] --POST /api/scrape--> [n8n Webhook] --> [Scraping] --> [Response]
+```
+(Maintenant remplacée par PostgreSQL direct pour meilleures performances)
 
 ## 🎯 Fonctionnalités Implémentées
 
@@ -95,8 +110,8 @@ Application frontend pour visualiser les données des options scrapées depuis l
 - [x] Lignes de séparation entre sections
 - [x] Avertissement de non-conseil financier
 
-### ✅ Dashboard Dark Mode Professionnel (Complété)
-- [x] Interface dark mode complète (`/dark`)
+### ✅ Dashboard Dark Mode Professionnel (Mode Principal)
+- [x] Interface dark mode comme mode principal de l'application
 - [x] 4 graphiques analytiques interactifs (Recharts)
   - Volatility Smile (IV par Strike)
   - Volume par Strike (Top 15 liquidité)
@@ -106,9 +121,10 @@ Application frontend pour visualiser les données des options scrapées depuis l
 - [x] Layout en grille 2x2 responsive
 - [x] Thème sombre professionnel (#0f1419, #1e2329)
 - [x] Tooltips détaillés sur tous les graphiques
-- [x] Export PDF avec prévisualisation
+- [x] Export PDF avec prévisualisation (accessible via `/dark/print-preview`)
+- [x] Export JSON (vue actuelle + toutes les données)
 - [x] Capture haute qualité des graphiques
-- [x] Analyse IA des données filtrées uniquement
+- [x] Sélection automatique et chargement des données
 
 ### 🔄 Phase 3 - Améliorations Futures
 - [ ] Sauvegarde des données en localStorage
@@ -125,9 +141,12 @@ Application frontend pour visualiser les données des options scrapées depuis l
 - **Langage** : TypeScript
 - **Styling** : TailwindCSS
 - **HTTP Client** : Axios
+- **Graphiques** : Recharts (LineChart, BarChart, ComposedChart)
+- **Export PDF** : jspdf + html2canvas
 - **State Management** : React Hooks (useState, useMemo, useEffect)
 - **IA** : OpenAI API (GPT-4)
 - **Markdown Rendering** : react-markdown
+- **Database** : PostgreSQL (via n8n)
 
 ## 📁 Structure du Projet
 
@@ -135,24 +154,32 @@ Application frontend pour visualiser les données des options scrapées depuis l
 /Options model/
 ├── app/
 │   ├── api/
+│   │   ├── options/
+│   │   │   ├── route.ts               # API route pour récupération données PostgreSQL
+│   │   │   └── export-today/
+│   │   │       └── route.ts           # API route pour export toutes données du jour
 │   │   ├── scrape/
-│   │   │   └── route.ts           # API route proxy vers n8n
+│   │   │   └── route.ts               # API route proxy vers n8n (legacy)
 │   │   └── analyze/
-│   │       └── route.ts           # API route pour analyse IA
-│   ├── layout.tsx                 # Layout Next.js
-│   ├── page.tsx                   # Page principale avec logique
-│   └── globals.css                # Styles globaux TailwindCSS
+│   │       └── route.ts               # API route pour analyse IA
+│   ├── dark/
+│   │   └── print-preview/
+│   │       └── page.tsx               # Page de prévisualisation PDF
+│   ├── layout.tsx                     # Layout Next.js
+│   ├── page.tsx                       # Page principale DARK MODE avec graphiques
+│   └── globals.css                    # Styles globaux TailwindCSS
 ├── components/
-│   ├── OptionsTable.tsx           # Tableau avec organisation Call/Put
-│   ├── DataFilters.tsx            # Composant de filtrage et tri
-│   └── AIAnalysis.tsx             # Composant d'analyse IA
-├── .env.example                   # Template pour variables d'environnement
+│   ├── OptionsTable.tsx               # Tableau avec organisation Call/Put (legacy)
+│   ├── DataFilters.tsx                # Composant de filtrage et tri (legacy)
+│   └── AIAnalysis.tsx                 # Composant d'analyse IA (legacy)
+├── .env.example                       # Template pour variables d'environnement
+├── .env.local                         # Variables d'environnement (DATABASE_URL)
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.js
 ├── postcss.config.js
 ├── next.config.js
-└── PROJECT.md                     # Ce fichier
+└── PROJECT.md                         # Ce fichier
 ```
 
 ## 📊 Structure des Données
@@ -194,7 +221,23 @@ type WebhookResponse = OptionData[];
 - `createdAt`
 - `updatedAt`
 
-## 🔗 Configuration n8n
+## 🗄️ Configuration PostgreSQL
+
+### Base de Données
+- **Source principale** : PostgreSQL via n8n
+- **Table** : `options_data` (ou équivalent)
+- **Connexion** : Variable d'environnement `DATABASE_URL`
+- **ORM** : `@vercel/postgres` pour les requêtes SQL
+
+### API Routes
+1. **POST `/api/options`** : Récupère les données d'options pour un symbole donné
+   - Paramètre : `symbol` (body)
+   - Retourne : Tableau d'options
+
+2. **GET `/api/options/export-today`** : Exporte toutes les données du jour
+   - Retourne : Tableau de toutes les options créées aujourd'hui
+
+## 🔗 Configuration n8n (Legacy)
 
 ### Webhook URL
 - **URL Production** : `http://localhost:5678/webhook/f6645a25-ad42-4d85-92e9-f2301bce649d`
@@ -207,16 +250,21 @@ type WebhookResponse = OptionData[];
 3. Retourne un tableau JSON d'options
 4. Le symbole est récupéré via `{{ $request.query.symbol }}`
 
+**Note** : Le webhook n8n est maintenant en mode legacy. Les données sont récupérées directement depuis PostgreSQL pour de meilleures performances.
+
 ## 🚀 Installation & Démarrage
 
 ```bash
 # Installation des dépendances
 npm install
 
-# Configuration de la clé API OpenAI
+# Configuration des variables d'environnement
 # 1. Créer un fichier .env.local à la racine du projet
-# 2. Ajouter votre clé API OpenAI :
-echo "OPENAI_API_KEY=your_api_key_here" > .env.local
+# 2. Ajouter la connexion PostgreSQL :
+echo "DATABASE_URL=postgresql://user:password@host:port/database" >> .env.local
+
+# 3. (Optionnel) Ajouter votre clé API OpenAI pour l'analyse IA :
+echo "OPENAI_API_KEY=your_api_key_here" >> .env.local
 
 # Développement
 npm run dev
@@ -237,14 +285,17 @@ Pour utiliser l'analyse IA, vous devez :
 
 ## 💡 Utilisation
 
-1. **Sélectionner un symbole** : Choisissez dans la liste déroulante (413+ symboles disponibles)
-2. **Voir le nom complet** : Le nom de la compagnie s'affiche sous la liste déroulante
-3. **Scraper** : Cliquez sur "Scraper les données"
+1. **Sélectionner un symbole** : Choisissez dans la liste déroulante (50+ symboles populaires)
+2. **Chargement automatique** : Les données se chargent automatiquement depuis PostgreSQL
+3. **Voir le nom complet** : Le nom de la compagnie s'affiche sous la liste déroulante
 4. **Naviguer** : Un nouvel onglet apparaît avec le symbole et l'heure
-5. **Analyser avec IA** : Cliquez sur "Analyser avec IA" pour obtenir des recommandations d'investissement
-6. **Filtrer** : Utilisez les filtres pour affiner les résultats
-7. **Trier** : Cliquez sur les boutons de tri pour organiser les données
-8. **Exporter** : Cliquez sur "Exporter CSV" pour sauvegarder les données filtrées
+5. **Analyser les graphiques** : 4 graphiques interactifs affichent la volatilité, volume, term structure et call/put ratio
+6. **Filtrer** : Utilisez les 8 filtres (Type, Dates, Strike, Volatilité, Weekly) pour affiner les résultats
+7. **Trier** : Cliquez sur les boutons de tri pour organiser les données (Date, Strike, IV, OI, etc.)
+8. **Exporter** : Menu d'export avec 3 options
+   - Export PDF : Prévisualisation avec graphiques capturés
+   - Export Vue Actuelle (JSON) : Données filtrées et triées
+   - Export All Data (JSON) : Toutes les options du jour depuis la base de données
 9. **Comparer** : Gardez plusieurs onglets ouverts pour comparer différents symboles
 10. **Fermer** : Cliquez sur × pour fermer un onglet
 
@@ -355,32 +406,44 @@ Chaque option est résumée avec :
 
 ---
 
-**Dernière mise à jour** : 2025-10-03
-**Status** : 🟢 Version 2.1 - Analyse IA avec Markdown Optimisé
-**Version** : 2.1.0
+**Dernière mise à jour** : 2025-10-14
+**Status** : 🟢 Version 3.0 - Dark Mode Principal avec Graphiques Professionnels
+**Version** : 3.0.0
 
 ## 🎉 Résumé des fonctionnalités complètes
 
-L'application **Options Viewer** est maintenant complète avec :
+L'application **Options Trading Dashboard** est maintenant complète avec :
 
-✅ **Scraping & Affichage**
-- Scraping des données via n8n webhook
-- Affichage organisé Call/Put avec couleurs
-- 413+ symboles du Montreal Exchange
+✅ **Interface Professionnelle Dark Mode**
+- Interface dark mode comme mode principal
+- Thème sombre optimisé (#0f1419, #1e2329, #252a30)
+- Chargement automatique des données depuis PostgreSQL
+- 50+ symboles populaires du Montreal Exchange
 - Système d'onglets avec historique
 
-✅ **Filtrage & Tri**
-- Filtres multiples (Type, Date, Strike, Volatilité, Weekly/Standard)
-- Tri par 6 colonnes différentes
+✅ **Graphiques Analytics Avancés**
+- Volatility Smile (IV par Strike Price)
+- Volume par Strike (Top 15 liquidité)
+- IV Term Structure (évolution temporelle)
+- Call/Put Ratio (sentiment marché)
+- Cartes de statistiques en temps réel
+- Tooltips interactifs détaillés
+
+✅ **Filtrage & Tri Avancés**
+- 8 filtres puissants (Type, Dates Min/Max, Strike Min/Max, Volatilité Min/Max, Weekly)
+- Tri dynamique par 6 colonnes (Date, Strike, IV, OI, Bid, Ask)
 - Réinitialisation rapide des filtres
+- Mise à jour temps réel des graphiques
 
-✅ **Export**
-- Export CSV avec données filtrées
-- Nom de fichier dynamique avec symbole et date
+✅ **Export Multi-Format**
+- Export PDF avec prévisualisation et capture haute qualité des graphiques
+- Export JSON Vue Actuelle (données filtrées/triées)
+- Export JSON All Data (toutes les données du jour depuis DB)
+- Menu d'export avec 3 options
 
-✅ **Analyse IA**
-- Analyse automatique par GPT-4o
-- Recommandations d'achat/vente personnalisées
-- Niveaux de risque visuels (🟢🟡🔴)
-- Affichage Markdown élégant et espacé
-- Emojis pour navigation rapide
+✅ **Table de Données Optimisée**
+- Organisation intelligente Call/Put par date et strike
+- Scroll vertical et horizontal
+- Formatage automatique des dates et nombres
+- Badges colorés Call (vert) / Put (rouge)
+- Affichage compact avec toutes les colonnes
